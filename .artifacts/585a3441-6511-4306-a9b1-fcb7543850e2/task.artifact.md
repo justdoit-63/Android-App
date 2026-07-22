@@ -1,0 +1,15 @@
+- [x] Update `MainActivity.kt` to display and log local time
+    - [x] Add imports for Date and Time formatting
+    - [x] Log local time in `onCreate`
+    - [x] Update UI to display the time
+- [x] Verify changes in `MainActivity.kt`
+- [x] Create walkthrough
+- [x] Implement Live Material Clock (Dark Theme)
+    - [x] Update `MainActivity.kt` imports
+    - [x] Implement `ClockScreen` with state management (time, mode)
+    - [x] Implement `DigitalClock` UI
+    - [x] Implement `AnalogClock` UI using Canvas
+    - [x] Add mode toggle UI
+    - [x] Force Dark Theme in `setContent`
+- [x] Verify Clock functionality
+- [x] Update walkthrough
