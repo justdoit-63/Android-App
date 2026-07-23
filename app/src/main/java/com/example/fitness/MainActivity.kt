@@ -1,200 +1,251 @@
 package com.example.fitness
 
+import android.Manifest
+import android.content.*
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.Crossfade
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.example.fitness.service.WorkoutTimerService
+import com.example.fitness.ui.FitnessViewModel
+import com.example.fitness.ui.screens.*
 import com.example.fitness.ui.theme.FitnessTheme
-import kotlinx.coroutines.delay
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 
 class MainActivity : ComponentActivity() {
+
+    private val viewModel: FitnessViewModel by viewModels()
+
+    private var timerService: WorkoutTimerService? = null
+    private var isBound = false
+
+    private val workoutStoppedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == WorkoutTimerService.ACTION_WORKOUT_STOPPED) {
+                viewModel.setWorkoutActive(false)
+            }
+        }
+    }
+
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        // Permission handled
+    }
+
+    private val connection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as WorkoutTimerService.LocalBinder
+            val s = binder.getService()
+            timerService = s
+            isBound = true
+            viewModel.setTimerService(s)
+            // Sync state on connection
+            viewModel.setWorkoutActive(s.isWorkoutRunning)
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            isBound = false
+            viewModel.setTimerService(null)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        checkNotificationPermission()
+        handleIntent(intent)
         setContent {
-            // Force dark theme as requested
             FitnessTheme(darkTheme = true) {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    ClockScreen(modifier = Modifier.padding(innerPadding))
+                val navController = rememberNavController()
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentDestination = navBackStackEntry?.destination
+
+                val showCompletionDialog by viewModel.showCompletionDialog.collectAsState()
+
+                Scaffold(
+                    bottomBar = {
+                        if (currentDestination?.route != "achievements" && !showCompletionDialog) {
+                            NavigationBar {
+                                NavigationBarItem(
+                                    icon = { Icon(Icons.Default.Home, contentDescription = null) },
+                                    label = { Text("Home") },
+                                    selected = currentDestination?.route == "home",
+                                    onClick = { navController.navigate("home") }
+                                )
+                                NavigationBarItem(
+                                    icon = {
+                                        Icon(
+                                            Icons.Default.CalendarToday,
+                                            contentDescription = null
+                                        )
+                                    },
+                                    label = { Text("Schedule") },
+                                    selected = currentDestination?.route == "schedule",
+                                    onClick = { navController.navigate("schedule") }
+                                )
+                                NavigationBarItem(
+                                    icon = {
+                                        Icon(
+                                            Icons.Default.BarChart,
+                                            contentDescription = null
+                                        )
+                                    },
+                                    label = { Text("Stats") },
+                                    selected = currentDestination?.route == "stats",
+                                    onClick = { navController.navigate("stats") }
+                                )
+                                NavigationBarItem(
+                                    icon = { Icon(Icons.Default.History, contentDescription = null) },
+                                    label = { Text("History") },
+                                    selected = currentDestination?.route == "history",
+                                    onClick = { navController.navigate("history") }
+                                )
+                            }
+                        }
+                    }
+                ) { innerPadding ->
+                    NavHost(
+                        navController = navController,
+                        startDestination = "home",
+                        modifier = Modifier.padding(innerPadding)
+                    ) {
+                        composable("home") {
+                            HomeScreen(
+                                viewModel = viewModel,
+                                onStartService = { muscleGroup, duration -> startWorkoutService(muscleGroup, duration) },
+                                onStopService = { triggerWorkoutCompletion() }
+                            )
+                        }
+                        composable("schedule") {
+                            ScheduleScreen(viewModel = viewModel)
+                        }
+                        composable("stats") {
+                            StatsScreen(
+                                viewModel = viewModel,
+                                onNavigateToAchievements = { navController.navigate("achievements") }
+                            )
+                        }
+                        composable("history") {
+                            HistoryScreen(viewModel = viewModel)
+                        }
+                        composable("achievements") {
+                            AchievementsScreen(
+                                viewModel = viewModel,
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+                    }
+
+                    if (showCompletionDialog) {
+                        WorkoutCompletionDialog(
+                            viewModel = viewModel,
+                            onSave = { weight, exercises, supplements ->
+                                viewModel.saveWorkoutSession(
+                                    muscleGroup = viewModel.getPendingMuscleGroup(),
+                                    durationMillis = viewModel.getPendingDuration(),
+                                    weight = weight,
+                                    exercises = exercises,
+                                    supplements = supplements
+                                )
+                                stopWorkoutService()
+                            },
+                            onDiscard = {
+                                viewModel.setShowCompletionDialog(false)
+                                stopWorkoutService()
+                            }
+                        )
+                    }
                 }
             }
         }
     }
-}
 
-@Composable
-fun ClockScreen(modifier: Modifier = Modifier) {
-    var currentTime by remember { mutableStateOf(Calendar.getInstance()) }
-    var isAnalog by remember { mutableStateOf(true) }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
 
-    // Live update every second
-    LaunchedEffect(Unit) {
-        while (true) {
-            currentTime = Calendar.getInstance()
-            delay(1000)
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.action == WorkoutTimerService.ACTION_END_WORKOUT_FROM_NOTIF) {
+            val muscleGroup = intent.getStringExtra(WorkoutTimerService.EXTRA_MUSCLE_GROUP) ?: "Unknown"
+            val elapsedTime = intent.getLongExtra(WorkoutTimerService.EXTRA_ELAPSED_TIME, 0L)
+            viewModel.prepareCompletion(muscleGroup, elapsedTime)
+            viewModel.setShowCompletionDialog(true)
         }
     }
 
-    Column(
-        modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text("Digital", style = MaterialTheme.typography.labelLarge)
-            Switch(checked = isAnalog, onCheckedChange = { isAnalog = it })
-            Text("Analog", style = MaterialTheme.typography.labelLarge)
+    private fun triggerWorkoutCompletion() {
+        val muscleGroup = viewModel.todayWorkoutName // I need to expose this
+        val elapsedTime = timerService?.elapsedTime?.value ?: 0L
+        viewModel.prepareCompletion(muscleGroup, elapsedTime)
+        viewModel.setShowCompletionDialog(true)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Intent(this, WorkoutTimerService::class.java).also { intent ->
+            bindService(intent, connection, Context.BIND_AUTO_CREATE)
         }
+        val filter = IntentFilter(WorkoutTimerService.ACTION_WORKOUT_STOPPED)
+        ContextCompat.registerReceiver(this, workoutStoppedReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+    }
 
-        Spacer(modifier = Modifier.height(32.dp))
+    override fun onStop() {
+        super.onStop()
+        if (isBound) {
+            unbindService(connection)
+            isBound = false
+        }
+        unregisterReceiver(workoutStoppedReceiver)
+    }
 
-        Crossfade(targetState = isAnalog, label = "ClockType") { analog ->
-            if (analog) {
-                AnalogClock(currentTime)
-            } else {
-                DigitalClock(currentTime)
+    private fun startWorkoutService(muscleGroup: String, durationMin: Int) {
+        val intent = Intent(this, WorkoutTimerService::class.java).apply {
+            action = WorkoutTimerService.ACTION_START
+            putExtra(WorkoutTimerService.EXTRA_MUSCLE_GROUP, muscleGroup)
+            putExtra(WorkoutTimerService.EXTRA_DURATION_MIN, durationMin)
+        }
+        startForegroundService(intent)
+        viewModel.setWorkoutActive(true)
+    }
+
+    private fun stopWorkoutService() {
+        val intent = Intent(this, WorkoutTimerService::class.java).apply {
+            action = WorkoutTimerService.ACTION_STOP
+        }
+        startService(intent)
+        viewModel.setWorkoutActive(false)
+    }
+
+    private fun checkNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
-    }
-}
-
-@Composable
-fun DigitalClock(calendar: Calendar) {
-    val timeString = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(calendar.time)
-    Text(
-        text = timeString,
-        style = MaterialTheme.typography.displayLarge.copy(
-            fontWeight = FontWeight.Bold,
-            fontSize = 64.sp
-        )
-    )
-}
-
-@Composable
-fun AnalogClock(calendar: Calendar) {
-    val seconds = calendar.get(Calendar.SECOND)
-    val minutes = calendar.get(Calendar.MINUTE)
-    val hours = calendar.get(Calendar.HOUR)
-
-    val colorPrimary = MaterialTheme.colorScheme.primary
-    val colorOnSurface = MaterialTheme.colorScheme.onSurface
-
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(300.dp)) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val radius = size.minDimension / 2
-            val center = Offset(size.width / 2, size.height / 2)
-
-            // Clock Face
-            drawCircle(
-                color = colorOnSurface,
-                radius = radius,
-                center = center,
-                style = Stroke(width = 4.dp.toPx())
-            )
-
-            // Hour Markers
-            for (i in 0 until 12) {
-                val angle = i * 30 * (PI / 180)
-                val start = Offset(
-                    (center.x + (radius - 15.dp.toPx()) * cos(angle)).toFloat(),
-                    (center.y + (radius - 15.dp.toPx()) * sin(angle)).toFloat()
-                )
-                val end = Offset(
-                    (center.x + radius * cos(angle)).toFloat(),
-                    (center.y + radius * sin(angle)).toFloat()
-                )
-                drawLine(color = colorOnSurface, start = start, end = end, strokeWidth = 4.dp.toPx())
-            }
-
-            // Hour Hand
-            val hourAngle = (hours * 30 + minutes * 0.5 - 90) * (PI / 180)
-            drawLine(
-                color = colorOnSurface,
-                start = center,
-                end = Offset(
-                    (center.x + radius * 0.5 * cos(hourAngle)).toFloat(),
-                    (center.y + radius * 0.5 * sin(hourAngle)).toFloat()
-                ),
-                strokeWidth = 8.dp.toPx(),
-                cap = StrokeCap.Round
-            )
-
-            // Minute Hand
-            val minuteAngle = (minutes * 6 - 90) * (PI / 180)
-            drawLine(
-                color = colorOnSurface,
-                start = center,
-                end = Offset(
-                    (center.x + radius * 0.7 * cos(minuteAngle)).toFloat(),
-                    (center.y + radius * 0.7 * sin(minuteAngle)).toFloat()
-                ),
-                strokeWidth = 6.dp.toPx(),
-                cap = StrokeCap.Round
-            )
-
-            // Second Hand
-            val secondAngle = (seconds * 6 - 90) * (PI / 180)
-            drawLine(
-                color = colorPrimary,
-                start = center,
-                end = Offset(
-                    (center.x + radius * 0.9 * cos(secondAngle)).toFloat(),
-                    (center.y + radius * 0.9 * sin(secondAngle)).toFloat()
-                ),
-                strokeWidth = 2.dp.toPx(),
-                cap = StrokeCap.Round
-            )
-
-            // Center Pin
-            drawCircle(color = colorPrimary, radius = 6.dp.toPx(), center = center)
-        }
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF000000)
-@Composable
-fun ClockPreview() {
-    FitnessTheme(darkTheme = true) {
-        ClockScreen()
     }
 }
