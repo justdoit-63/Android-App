@@ -1,9 +1,12 @@
 package com.example.fitness.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
@@ -28,7 +31,9 @@ fun AchievementsScreen(viewModel: FitnessViewModel, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Achievements") },
+                title = { 
+                    Text("ACHIEVEMENTS", fontWeight = FontWeight.Black, letterSpacing = 1.sp) 
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -39,7 +44,7 @@ fun AchievementsScreen(viewModel: FitnessViewModel, onBack: () -> Unit) {
     ) { padding ->
         if (achievements.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("Complete workouts to unlock badges!")
+                Text("Complete workouts to unlock badges!", style = MaterialTheme.typography.bodyLarge)
             }
         } else {
             LazyVerticalGrid(
@@ -59,34 +64,46 @@ fun AchievementsScreen(viewModel: FitnessViewModel, onBack: () -> Unit) {
 @Composable
 fun AchievementItem(title: String, description: String, isUnlocked: Boolean) {
     Card(
-        modifier = Modifier.fillMaxWidth().height(180.dp),
+        modifier = Modifier.fillMaxWidth().height(200.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isUnlocked) ElectricNeonBlue.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant
+            containerColor = if (isUnlocked) ElectricNeonBlue.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = if (isUnlocked) Icons.Default.Star else Icons.Default.Lock,
-                contentDescription = null,
-                tint = if (isUnlocked) ElectricNeonBlue else Color.Gray,
-                modifier = Modifier.size(48.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .background(
+                        if (isUnlocked) ElectricNeonBlue.copy(alpha = 0.2f) else Color.Gray.copy(alpha = 0.1f),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isUnlocked) Icons.Default.Star else Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = if (isUnlocked) ElectricNeonBlue else Color.Gray.copy(alpha = 0.5f),
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = title,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                fontSize = 14.sp
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center
             )
             Text(
                 text = description,
                 style = MaterialTheme.typography.labelSmall,
                 textAlign = TextAlign.Center,
-                color = Color.Gray
+                color = Color.Gray,
+                lineHeight = 14.sp
             )
         }
     }

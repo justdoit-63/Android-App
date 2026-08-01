@@ -110,7 +110,7 @@ class MainActivity : ComponentActivity() {
                                         )
                                     },
                                     label = { Text("Stats") },
-                                    selected = currentDestination?.route == "stats",
+                                    selected = currentDestination?.route == "stats" || currentDestination?.route == "weight_history",
                                     onClick = { navController.navigate("stats") }
                                 )
                                 NavigationBarItem(
@@ -141,7 +141,14 @@ class MainActivity : ComponentActivity() {
                         composable("stats") {
                             StatsScreen(
                                 viewModel = viewModel,
-                                onNavigateToAchievements = { navController.navigate("achievements") }
+                                onNavigateToAchievements = { navController.navigate("achievements") },
+                                onNavigateToWeightHistory = { navController.navigate("weight_history") }
+                            )
+                        }
+                        composable("weight_history") {
+                            WeightHistoryScreen(
+                                viewModel = viewModel,
+                                onBack = { navController.popBackStack() }
                             )
                         }
                         composable("history") {
@@ -158,13 +165,14 @@ class MainActivity : ComponentActivity() {
                     if (showCompletionDialog) {
                         WorkoutCompletionDialog(
                             viewModel = viewModel,
-                            onSave = { weight, exercises, supplements ->
+                            onSave = { weight, exercises, supplements, notes ->
                                 viewModel.saveWorkoutSession(
                                     muscleGroup = viewModel.getPendingMuscleGroup(),
                                     durationMillis = viewModel.getPendingDuration(),
                                     weight = weight,
                                     exercises = exercises,
-                                    supplements = supplements
+                                    supplements = supplements,
+                                    notes = notes
                                 )
                                 stopWorkoutService()
                             },

@@ -15,5 +15,6 @@ data class WorkoutSession(
     val startTime: Long,
     val endTime: Long,
     val durationMillis: Long,
-    val date: String
+    val date: String,
+    val notes: String? = null
 )

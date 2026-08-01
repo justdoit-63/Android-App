@@ -201,7 +201,7 @@ fun HomeScreen(
 
             // Weekly Progress
             item {
-                Text("Weekly Progress", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("Weekly Progress", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     ProgressStatCard("Workouts", "${weeklyWorkouts.size}", Modifier.weight(1f))
                     val totalMillis = weeklyWorkouts.sumOf { it.durationMillis }

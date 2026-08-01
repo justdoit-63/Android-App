@@ -1,31 +1,24 @@
-# Walkthrough: Workout Completion & Badges
+# Walkthrough - Build Recovery & Version Alignment
 
-I have implemented a detailed workout completion flow and a persistent status badge for today's workout.
+I have resolved the build failure by aligning the project versions and reverting to a stable configuration.
 
-## Key Features
+## Changes Made
 
-### 1. Workout Completion Flow
-- **Notification Integration**: Tapping "End Workout" in the notification now automatically opens the app and displays a **Workout Summary** popup.
-- **Summary Popup**: You can now log your:
-    - **Current Weight**: Keep track of your progress directly after training.
-    - **Exercises Completed**: Record the volume of your session.
-    - **Supplements Taken**: Check off which supplements (Protein, Creatine, Pre-workout) you used.
-- **Save/Discard Control**: Sessions are only saved when you tap "Save Session". Discarding will stop the timer without adding to your history.
+### 1. Version Alignment in `libs.versions.toml`
+- **AGP Downgrade**: Reverted Android Gradle Plugin from `9.3.1` to `9.3.0`.
+- **KSP Alignment**: Updated KSP from `2.3.2` to `2.2.10-2.0.2` to correctly match the Kotlin version `2.2.10`.
 
-### 2. Today's Completion Badge
-- **Home Screen Badge**: Once a workout is saved for the day, the "Today's Workout" card displays a green **✅ Completed** badge.
-- **Automatic Reset**: This badge stays visible for the remainder of the day and resets automatically at midnight for your next session.
+### 2. Gradle Wrapper Adjustment
+- **Gradle Version**: Downgraded from `9.6.1` back to `9.5.0` in `gradle-wrapper.properties` to ensure compatibility with AGP 9.3.0.
 
-### 3. Improved State Management
-- **Single Log Guarantee**: Fixed the bug where duplicate sessions were recorded. The saving logic is now unified through the summary dialog.
-- **Service Sync**: The app remains in sync with the background timer even when launched from a notification.
+## Result
 
-## Technical Details
-- **Database Version 5**: Added `weight` and `supplements` fields to the `WorkoutSession` entity.
-- **Flow-Based Tracking**: Used Kotlin Flows in the ViewModel to dynamically monitor if a workout has been completed today.
-- **Intent Handling**: Leveraged custom intent actions (`ACTION_END_WORKOUT_FROM_NOTIF`) to trigger the completion UI from the status bar.
+### Build Status: ✅ Success
+The project now builds successfully using the stable version set.
 
-## Verification
-- **Build**: Successfully ran `:app:assembleDebug`.
-- **Flow**: Verified that stopping a workout from either the app or the notification triggers the same detailed summary dialog.
-- **Badge**: Confirmed the "Completed" badge appears instantly after saving a session.
+> [!NOTE]
+> The original error `CreateProcess error=4551` (Application Control policy block) was likely triggered by the newer binaries downloaded during the attempted upgrade. Reverting to the previous versions resolved the conflict with your system's security policies.
+
+### Verification Results
+- **Gradle Sync**: Completed successfully.
+- **Project Build**: `:app:assembleDebug` finished with success.
